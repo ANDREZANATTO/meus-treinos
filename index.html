@@ -9,11 +9,11 @@
     <style>
         /* --- PALETA DE CORES E ESTILOS GERAIS --- */
         :root {
-            --cor-fundo: #0b1d2e;
-            --cor-card: #162a3f;
-            --cor-destaque: #00fa9a;
-            --cor-texto: #ffffff;
-            --cor-erro: #ff6b6b; /* Cor vermelha para o lixo */
+            --cor-fundo: #0b1d2e;      /* Azul Escuro Profundo */
+            --cor-card: #162a3f;       /* Azul um pouco mais claro para cartões */
+            --cor-destaque: #00fa9a;   /* Verde Água Vivo (SpringGreen) */
+            --cor-texto: #ffffff;      /* Branco */
+            --cor-erro: #ff6b6b;       /* Vermelho para o lixo */
         }
 
         body {
@@ -89,7 +89,7 @@
         .btn-delete {
             background: transparent;
             border: none;
-            font-size: 1.2rem;
+            font-size: 1.5rem;
             cursor: pointer;
             padding: 5px 10px;
             opacity: 0.7;
@@ -206,36 +206,51 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy, Timestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // --- COLE SUA CONFIGURAÇÃO DO FIREBASE AQUI ABAIXO ---
+        // --- SUAS CHAVES DO FIREBASE (JÁ CONFIGURADAS) ---
         const firebaseConfig = {
-            apiKey: "SUA_API_KEY_AQUI", 
-            authDomain: "SEU_PROJETO.firebaseapp.com",
-            projectId: "SEU_PROJETO_ID",
-            storageBucket: "...",
-            messagingSenderId: "...",
-            appId: "..."
+            apiKey: "AIzaSyA1hVBNS3EPZMf4lcWF1_UkwIDfBDwX43w",
+            authDomain: "meus-treinos-70653.firebaseapp.com",
+            projectId: "meus-treinos-70653",
+            storageBucket: "meus-treinos-70653.firebasestorage.app",
+            messagingSenderId: "673230820994",
+            appId: "1:673230820994:web:7504a8048479ff3501869b",
+            measurementId: "G-J0ZPWEGQJ7"
         };
 
-        // Inicializa Firebase
+        // Inicializa o Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Funções do Modal
+        // --- FUNÇÕES VISUAIS (Janela Modal) ---
         window.abrirModal = function() {
-            document.getElementById('dataTreino').valueAsDate = new Date();
-            document.getElementById('modal').style.display = 'flex';
+            const modal = document.getElementById('modal');
+            const dataInput = document.getElementById('dataTreino');
+            
+            // Tenta colocar a data de hoje. Se der erro em navegador antigo, ignora.
+            try { dataInput.valueAsDate = new Date(); } catch(e) {}
+            
+            modal.style.display = 'flex';
         }
 
         window.fecharModal = function() {
             document.getElementById('modal').style.display = 'none';
         }
 
-        // --- SALVAR ---
+        // --- FUNÇÃO DE SALVAR ---
         window.salvarTreino = async function() {
             const data = document.getElementById('dataTreino').value;
             const tipo = document.getElementById('tipoTreino').value;
+            const btn = document.querySelector('.btn-salvar');
 
-            if(!data || !tipo) return alert("Preencha todos os campos!");
+            if(!data || !tipo) {
+                alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            // Muda texto do botão para avisar que está salvando
+            const textoOriginal = btn.innerText;
+            btn.innerText = "Salvando...";
+            btn.disabled = true;
 
             try {
                 await addDoc(collection(db, "treinos"), {
@@ -243,77 +258,89 @@
                     tipo: tipo,
                     timestamp: Timestamp.now()
                 });
+                
                 fecharModal();
-                carregarTreinos(); // Recarrega a lista
+                // Não usamos alert aqui para ser mais fluido, apenas recarregamos
+                carregarTreinos(); 
             } catch (e) {
+                console.error("Erro:", e);
                 alert("Erro ao salvar: " + e.message);
+            } finally {
+                // Devolve o botão ao normal
+                btn.innerText = textoOriginal;
+                btn.disabled = false;
             }
         }
 
-        // --- APAGAR TREINO ---
+        // --- FUNÇÃO DE APAGAR ---
         window.apagarTreino = async function(idTreino) {
-            const confirmacao = confirm("Tem certeza que deseja apagar este treino?");
-            
-            if (confirmacao) {
+            if (confirm("Tem certeza que deseja apagar este treino?")) {
                 try {
-                    // Deleta o documento usando o ID
                     await deleteDoc(doc(db, "treinos", idTreino));
-                    alert("Treino apagado!");
-                    carregarTreinos(); // Atualiza a lista visualmente
+                    carregarTreinos(); // Atualiza a lista na hora
                 } catch (e) {
                     console.error("Erro ao apagar:", e);
-                    alert("Erro ao apagar.");
+                    alert("Erro ao apagar o treino.");
                 }
             }
         }
 
-        // --- CARREGAR LISTA ---
+        // --- FUNÇÃO DE CARREGAR LISTA ---
         async function carregarTreinos() {
             const lista = document.getElementById('lista-treinos');
-            lista.innerHTML = '<p style="text-align: center; color: #aaa;">Atualizando...</p>';
-
-            const q = query(collection(db, "treinos"), orderBy("data", "desc"));
-            const querySnapshot = await getDocs(q);
-
-            lista.innerHTML = ''; 
-
-            if (querySnapshot.empty) {
-                lista.innerHTML = '<p style="color: #aaa;">Nenhum treino registrado.</p>';
-                return;
+            
+            // Se já tiver cards, não apaga tudo para não piscar, só se estiver vazio
+            if(lista.innerHTML.includes("Carregando")) {
+               lista.innerHTML = '<p style="text-align: center; color: #aaa;">Buscando dados...</p>';
             }
 
-            querySnapshot.forEach((documento) => {
-                const treino = documento.data();
-                const id = documento.id; // ID Único do Firebase
+            try {
+                const q = query(collection(db, "treinos"), orderBy("data", "desc"));
+                const querySnapshot = await getDocs(q);
 
-                // Formatar Data
-                const dataObj = new Date(treino.data);
-                dataObj.setMinutes(dataObj.getMinutes() + dataObj.getTimezoneOffset());
-                const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+                lista.innerHTML = ''; // Limpa para desenhar de novo
 
-                // Cria o Card com o botão de lixo
-                const cardHTML = `
-                    <div class="card-treino">
-                        <div class="card-info">
-                            <h3>${treino.tipo}</h3>
-                            <span class="card-data">Data: ${dataFormatada}</span>
+                if (querySnapshot.empty) {
+                    lista.innerHTML = '<p style="color: #aaa; text-align:center;">Nenhum treino registrado ainda.</p>';
+                    return;
+                }
+
+                querySnapshot.forEach((docSnap) => {
+                    const treino = docSnap.data();
+                    const id = docSnap.id;
+                    
+                    // Tratamento de Data seguro
+                    let dataFormatada = "Sem data";
+                    if(treino.data) {
+                        const dataObj = new Date(treino.data);
+                        dataObj.setMinutes(dataObj.getMinutes() + dataObj.getTimezoneOffset());
+                        dataFormatada = dataObj.toLocaleDateString('pt-BR');
+                    }
+
+                    const cardHTML = `
+                        <div class="card-treino">
+                            <div class="card-info">
+                                <h3>${treino.tipo}</h3>
+                                <span class="card-data">Data: ${dataFormatada}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <span style="font-size: 24px;">💪</span>
+                                <button class="btn-delete" onclick="apagarTreino('${id}')" title="Excluir">
+                                    🗑️
+                                </button>
+                            </div>
                         </div>
-                        
-                        <div style="display: flex; align-items: center;">
-                            <span style="font-size: 24px;">💪</span>
-                            <button class="btn-delete" onclick="apagarTreino('${id}')" title="Apagar treino">
-                                🗑️
-                            </button>
-                        </div>
-                    </div>
-                `;
-                lista.innerHTML += cardHTML;
-            });
+                    `;
+                    lista.innerHTML += cardHTML;
+                });
+            } catch (erro) {
+                console.error("Erro ao listar:", erro);
+                lista.innerHTML = '<p style="color: var(--cor-erro); text-align:center;">Erro ao carregar treinos. Verifique sua conexão.</p>';
+            }
         }
 
-        // Carrega ao iniciar
+        // Inicia o carregamento
         carregarTreinos();
     </script>
 </body>
 </html>
-
