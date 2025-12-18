@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Treinos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- PALETA DE CORES E ESTILOS GERAIS --- */
+        :root {
+            --cor-fundo: #0b1d2e;      /* Azul Escuro Profundo */
+            --cor-card: #162a3f;       /* Azul um pouco mais claro para cartões */
+            --cor-destaque: #00fa9a;   /* Verde Água Vivo (SpringGreen) */
+            --cor-texto: #ffffff;      /* Branco */
+        }
+
+        body {
+            background-color: var(--cor-fundo);
+            color: var(--cor-texto);
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--cor-destaque);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+        }
+
+        /* --- BOTÃO REGISTRAR --- */
+        .btn-principal {
+            background-color: var(--cor-destaque);
+            color: var(--cor-fundo);
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 250, 154, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-principal:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 250, 154, 0.6);
+        }
+
+        /* --- CONTAINER DOS TREINOS (GRID) --- */
+        #lista-treinos {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 40px;
+        }
+
+        /* --- ESTILO DOS CARDS --- */
+        .card-treino {
+            background-color: var(--cor-card);
+            border-left: 5px solid var(--cor-destaque);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-info h3 {
+            margin: 0 0 5px 0;
+            font-size: 1.2rem;
+        }
+
+        .card-data {
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+
+        /* --- MODAL (CAIXA DE REGISTRO) --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: var(--cor-card);
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            border: 1px solid var(--cor-destaque);
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--cor-destaque);
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            background-color: #0b1d2e;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .btn-salvar {
+            background-color: var(--cor-destaque);
+            color: var(--cor-fundo);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-fechar {
+            background: transparent;
+            color: #aaa;
+            border: none;
+            margin-top: 15px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Diário de Treinos</h1>
+
+    <button class="btn-principal" onclick="abrirModal()">+ Registrar Treino</button>
+
+    <div id="lista-treinos">
+        <p style="text-align: center; width: 100%; color: #aaa;">Carregando treinos...</p>
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--cor-destaque);">Novo Treino</h2>
+            
+            <div class="form-group">
+                <label>Data:</label>
+                <input type="date" id="dataTreino">
+            </div>
+
+            <div class="form-group">
+                <label>Tipo de Treino:</label>
+                <select id="tipoTreino">
+                    <option value="HIT">HIT</option>
+                    <option value="Flexão e Tríceps">Flexão e Tríceps</option>
+                    <option value="Prancha">Prancha</option>
+                    <option value="Panturrilha">Panturrilha</option>
+                </select>
+            </div>
+
+            <button class="btn-salvar" onclick="salvarTreino()">Salvar</button>
+            <button class="btn-fechar" onclick="fecharModal()">Cancelar</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Importa as funções necessárias diretamente da internet (sem instalação)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // --- 1. SUA CONFIGURAÇÃO DO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA1hVBNS3EPZMf4lcWF1_UkwIDfBDwX43w",
+            authDomain: "meus-treinos-70653.firebaseapp.com",
+            projectId: "meus-treinos-70653",
+            storageBucket: "meus-treinos-70653.firebasestorage.app",
+            messagingSenderId: "673230820994",
+            appId: "1:673230820994:web:7504a8048479ff3501869b",
+            measurementId: "G-J0ZPWEGQJ7"
+        };
+
+        // Inicializa o Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- 2. FUNÇÕES VISUAIS (Modal) ---
+        window.abrirModal = function() {
+            const modal = document.getElementById('modal');
+            const dataInput = document.getElementById('dataTreino');
+            dataInput.valueAsDate = new Date(); // Define data de hoje
+            modal.style.display = 'flex';
+        }
+
+        window.fecharModal = function() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // --- 3. FUNÇÃO PARA SALVAR ---
+        window.salvarTreino = async function() {
+            const data = document.getElementById('dataTreino').value;
+            const tipo = document.getElementById('tipoTreino').value;
+
+            if(!data || !tipo) {
+                alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, "treinos"), {
+                    data: data,
+                    tipo: tipo,
+                    timestamp: Timestamp.now()
+                });
+                
+                fecharModal();
+                alert("Treino registrado com sucesso!");
+                carregarTreinos(); 
+            } catch (e) {
+                console.error("Erro ao adicionar documento: ", e);
+                alert("Erro ao salvar: " + e.message);
+            }
+        }
+
+        // --- 4. FUNÇÃO PARA CARREGAR ---
+        async function carregarTreinos() {
+            const lista = document.getElementById('lista-treinos');
+            lista.innerHTML = '<p style="text-align: center; color: #aaa;">Atualizando...</p>';
+
+            // Busca os treinos ordenados por data (mais recente primeiro)
+            const q = query(collection(db, "treinos"), orderBy("data", "desc"));
+            const querySnapshot = await getDocs(q);
+
+            lista.innerHTML = ''; // Limpa a mensagem
+
+            if (querySnapshot.empty) {
+                lista.innerHTML = '<p style="color: #aaa;">Nenhum treino registrado ainda.</p>';
+                return;
+            }
+
+            querySnapshot.forEach((doc) => {
+                const treino = doc.data();
+                
+                // Ajuste de fuso horário para exibir a data corretamente
+                const dataObj = new Date(treino.data);
+                dataObj.setMinutes(dataObj.getMinutes() + dataObj.getTimezoneOffset());
+                const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+
+                const cardHTML = `
+                    <div class="card-treino">
+                        <div class="card-info">
+                            <h3>${treino.tipo}</h3>
+                            <span class="card-data">Data: ${dataFormatada}</span>
+                        </div>
+                        <div style="font-size: 24px;">💪</div>
+                    </div>
+                `;
+                lista.innerHTML += cardHTML;
+            });
+        }
+
+        // Carrega ao iniciar
+        carregarTreinos();
+    </script>
+</body>
+</html>
