@@ -13,7 +13,7 @@
             --cor-card: #162a3f;
             --cor-destaque: #00fa9a;
             --cor-texto: #ffffff;
-            --cor-erro: #ff6b6b; /* Cor vermelha para apagar */
+            --cor-erro: #ff6b6b; /* Cor vermelha para o lixo */
         }
 
         body {
@@ -73,7 +73,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: relative; 
         }
 
         .card-info h3 {
@@ -86,7 +85,7 @@
             font-size: 0.9rem;
         }
 
-        /* Botão de Excluir (Lixo) */
+        /* --- BOTÃO DE EXCLUIR (LIXO) --- */
         .btn-delete {
             background: transparent;
             border: none;
@@ -95,11 +94,12 @@
             padding: 5px 10px;
             opacity: 0.7;
             transition: opacity 0.2s;
+            margin-left: 10px;
         }
 
         .btn-delete:hover {
             opacity: 1;
-            transform: scale(1.1);
+            transform: scale(1.2);
         }
 
         /* --- MODAL (CAIXA DE REGISTRO) --- */
@@ -198,4 +198,122 @@
             </div>
 
             <button class="btn-salvar" onclick="salvarTreino()">Salvar</button>
-            <button class="
+            <button class="btn-fechar" onclick="fecharModal()">Cancelar</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, Timestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // --- COLE SUA CONFIGURAÇÃO DO FIREBASE AQUI ABAIXO ---
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY_AQUI", 
+            authDomain: "SEU_PROJETO.firebaseapp.com",
+            projectId: "SEU_PROJETO_ID",
+            storageBucket: "...",
+            messagingSenderId: "...",
+            appId: "..."
+        };
+
+        // Inicializa Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Funções do Modal
+        window.abrirModal = function() {
+            document.getElementById('dataTreino').valueAsDate = new Date();
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        window.fecharModal = function() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // --- SALVAR ---
+        window.salvarTreino = async function() {
+            const data = document.getElementById('dataTreino').value;
+            const tipo = document.getElementById('tipoTreino').value;
+
+            if(!data || !tipo) return alert("Preencha todos os campos!");
+
+            try {
+                await addDoc(collection(db, "treinos"), {
+                    data: data,
+                    tipo: tipo,
+                    timestamp: Timestamp.now()
+                });
+                fecharModal();
+                carregarTreinos(); // Recarrega a lista
+            } catch (e) {
+                alert("Erro ao salvar: " + e.message);
+            }
+        }
+
+        // --- APAGAR TREINO ---
+        window.apagarTreino = async function(idTreino) {
+            const confirmacao = confirm("Tem certeza que deseja apagar este treino?");
+            
+            if (confirmacao) {
+                try {
+                    // Deleta o documento usando o ID
+                    await deleteDoc(doc(db, "treinos", idTreino));
+                    alert("Treino apagado!");
+                    carregarTreinos(); // Atualiza a lista visualmente
+                } catch (e) {
+                    console.error("Erro ao apagar:", e);
+                    alert("Erro ao apagar.");
+                }
+            }
+        }
+
+        // --- CARREGAR LISTA ---
+        async function carregarTreinos() {
+            const lista = document.getElementById('lista-treinos');
+            lista.innerHTML = '<p style="text-align: center; color: #aaa;">Atualizando...</p>';
+
+            const q = query(collection(db, "treinos"), orderBy("data", "desc"));
+            const querySnapshot = await getDocs(q);
+
+            lista.innerHTML = ''; 
+
+            if (querySnapshot.empty) {
+                lista.innerHTML = '<p style="color: #aaa;">Nenhum treino registrado.</p>';
+                return;
+            }
+
+            querySnapshot.forEach((documento) => {
+                const treino = documento.data();
+                const id = documento.id; // ID Único do Firebase
+
+                // Formatar Data
+                const dataObj = new Date(treino.data);
+                dataObj.setMinutes(dataObj.getMinutes() + dataObj.getTimezoneOffset());
+                const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+
+                // Cria o Card com o botão de lixo
+                const cardHTML = `
+                    <div class="card-treino">
+                        <div class="card-info">
+                            <h3>${treino.tipo}</h3>
+                            <span class="card-data">Data: ${dataFormatada}</span>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center;">
+                            <span style="font-size: 24px;">💪</span>
+                            <button class="btn-delete" onclick="apagarTreino('${id}')" title="Apagar treino">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+                lista.innerHTML += cardHTML;
+            });
+        }
+
+        // Carrega ao iniciar
+        carregarTreinos();
+    </script>
+</body>
+</html>
+
